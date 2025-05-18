@@ -1,0 +1,93 @@
+services:
+  qbittorrent:
+    container_name: qbittorrent
+    image: lscr.io/linuxserver/qbittorrent:latest
+    environment:
+      - TORRENTING_PORT=6881
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+      - WEBUI_PORT=8080
+    ports:
+      - 6881:6881/tcp
+      - 6881:6881/udp
+      - 8080:8080/tcp
+    restart: unless-stopped
+    volumes:
+      - /home/rafaelgavarron/qbittorrent/appdata:/config:rw
+      - /home/rafaelgavarron/qbittorrent/downloads:/downloads:rw
+  obsidian-livesync:
+    container_name: obsidian-livesync
+    image: couchdb:latest
+    environment:
+      - TZ=America/Sao_Paulo
+      - COUCHDB_USER=obsidian_user
+      - COUCHDB_PASSWORD=password
+    ports:
+      - 5984:5984/tcp
+    restart: unless-stopped
+    volumes:
+      - /mnt/user/appdata/couchdb-obsidian-livesync/data:/opt/couchdb/data:rw
+      - /mnt/user/appdata/couchdb-obsidian-livesync/etc/local.d:/opt/couchdb/etc/local.d:rw
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    ports:
+      - 8096:8096/tcp
+      - 8920:8920/tcp
+    restart: unless-stopped
+    volumes:
+      - /home/rafaelgavarron/jellyfin/config:/config:rw
+      - /home/rafaelgavarron/jellyfin/cache:/cache:rw
+      - /home/rafaelgavarron/qbittorrent/downloads:/media:rw
+  pihole:
+    container_name: pihole
+    image: pihole/pihole:latest
+    environment:
+      - TZ=America/Sao_Paulo
+      - FTLCONF_webserver_api_password=gavarron
+    ports:
+      - 4043:443/tcp
+      - 53:53/udp
+      - 70:80/tcp
+    restart: unless-stopped
+    volumes:
+      - /home/rafaelgavarron/etc-pihole:/etc/pihole:rw
+  Bedrock_Server:
+    container_name: Minecraft_Bedrock_Server
+    environment:
+      - EULA=TRUE
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - VERSION=LATEST
+      - SERVER_PORT=19132
+      - ENABLE_SSH=TRUE
+    image: itzg/minecraft-bedrock-server
+    ports:
+      - 19132:19132/udp
+    stdin_open: true
+    tty: true
+    expose:
+      - 2222
+    volumes:
+      - /home/rafaelgavarron/data:/data:rw
+    working_dir: /data
+  backup:
+    image: kaiede/minecraft-bedrock-backup
+    restart: always
+    depends_on:
+      # Make sure the minecraft service starts before the backup
+      - "Bedrock_Server"
+    environment:
+        # Without this, your log timestamps will be in the GMT timezone.
+        TZ: "America/Sao_Paulo"
+    volumes:
+      # (Optional) Map a configuration folder separately from the backups.
+      - /minecraft/backup-config:/config
+      # Map your backups folder into /data
+      - /minecraft/backups:/data
+      # Map your server's data folder wherever you like
+      - /home/rafaelgavarron/data:/public
+  watchtower:
+    image: containrrr/watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
